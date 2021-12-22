@@ -1,6 +1,7 @@
 #!intentional_blank_line
 #tags = ["core_approved", "example"]
-#developer = [ "example", "https://example.org" ]
+#trigger_ports = ["80","8080","3307"]
+#developers = [ "example", "https://example.org" ]
 #ports_separator = ","
 #call_format = "nmap -vvv -p {{port}} {{ip}}"
 

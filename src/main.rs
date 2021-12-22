@@ -8,6 +8,8 @@ mod tui;
 
 mod input;
 use input::{Config, Opts, PortRange, ScanOrder, ScriptsRequired};
+use std::collections::HashSet;
+use std::iter::FromIterator;
 
 mod scanner;
 use scanner::Scanner;
@@ -141,6 +143,7 @@ fn main() {
     let mut script_bench = NamedTimer::start("Scripts");
     for (ip, ports) in &ports_per_ip {
         let vec_str_ports: Vec<String> = ports.iter().map(ToString::to_string).collect();
+        let hash_ports: HashSet<String> = HashSet::<String>::from_iter(vec_str_ports.iter().cloned());
 
         // nmap port style is 80,443. Comma separated with no spaces.
         let ports_str = vec_str_ports.join(",");
@@ -173,25 +176,53 @@ fn main() {
             }
 
             // Building the script with the arguments from the ScriptFile, and ip-ports.
-            let script = Script::build(
-                script_f.path,
-                *ip,
-                ports.to_vec(),
-                script_f.port,
-                script_f.ports_separator,
-                script_f.tags,
-                script_f.call_format,
-            );
-            match script.run() {
-                Ok(script_result) => {
-                    detail!(script_result.to_string(), opts.greppable, opts.accessible);
+            if script_f.trigger_ports.is_some() {
+                let script_trigger_ports: HashSet<String> =
+                    script_f.trigger_ports.clone().unwrap().into_iter().collect();
+                if hash_ports.is_subset(&script_trigger_ports){
+                    let script = Script::build(
+                        script_f.path,
+                        *ip,
+                        ports.to_vec(),
+                        script_f.port,
+                        script_f.ports_separator,
+                        script_f.tags,
+                        script_f.call_format,
+                    );
+                    match script.run() {
+                        Ok(script_result) => {
+                            detail!(script_result.to_string(), opts.greppable, opts.accessible);
+                        }
+                        Err(e) => {
+                           warning!(
+                                &format!("Error {}", e.to_string()),
+                                opts.greppable,
+                                opts.accessible
+                            );
+                        }
+                    }
                 }
-                Err(e) => {
-                    warning!(
+            } else if script_f.trigger_ports.is_none(){
+                let script = Script::build(
+                    script_f.path,
+                    *ip,
+                    ports.to_vec(),
+                    script_f.port,
+                    script_f.ports_separator,
+                    script_f.tags,
+                    script_f.call_format,
+                );
+                match script.run() {
+                    Ok(script_result) => {
+                        detail!(script_result.to_string(), opts.greppable, opts.accessible);
+                    }
+                    Err(e) => {
+                        warning!(
                         &format!("Error {}", e.to_string()),
                         opts.greppable,
                         opts.accessible
                     );
+                    }
                 }
             }
         }

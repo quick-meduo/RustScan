@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 #tags = ["core_approved", "example",]
-#developer = [ "example", "https://example.org" ]
-#trigger_port = "80"
+#developers = [ "example", "https://example.org" ]
+#trigger_ports = ["80"]
 #call_format = "python3 {{script}} {{ip}} {{port}}"
 
 # Sriptfile parser stops at the first blank line with parsing.

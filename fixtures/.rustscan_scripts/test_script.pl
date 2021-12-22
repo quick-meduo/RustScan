@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 #tags = ["core_approved", "example",]
-#developer = [ "example", "https://example.org" ]
+#developers = [ "example", "https://example.org" ]
+#trigger_ports = ["80","8080","3307"]
 #ports_separator = ","
 #call_format = "perl {{script}} {{ip}} {{port}}"
 

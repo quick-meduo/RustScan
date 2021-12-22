@@ -98,18 +98,43 @@ pub fn init_scripts(scripts: ScriptsRequired) -> Result<Vec<ScriptFile>> {
 
             // Only Scripts that contain all the tags found in ScriptConfig will be selected.
             if script_config.tags.is_some() {
-                let config_hashset: HashSet<String> =
-                    script_config.tags.unwrap().into_iter().collect();
+                let config_tags: HashSet<String> = match script_config.tags {
+                    Some(tags) => tags.into_iter().collect(),
+                    None => { HashSet::<String>::new() }
+                };
+
+                let config_ports: HashSet<String> = match script_config.ports {
+                    Some(ports) => ports.into_iter().collect(),
+                    None => { HashSet::<String>::new() }
+                };
+
+                let config_developers: HashSet<String> = match script_config.developers {
+                    Some(developers) => developers.into_iter().collect(),
+                    None => { HashSet::<String>::new() }
+                };
+
                 for script in &parsed_scripts {
                     if script.tags.is_some() {
-                        let script_hashset: HashSet<String> =
+                        let script_tags: HashSet<String> =
                             script.tags.clone().unwrap().into_iter().collect();
-                        if config_hashset.is_subset(&script_hashset) {
-                            scripts_to_run.push(script.to_owned());
+
+                        if config_tags.is_subset(&script_tags) {
+                            //if not enabled ports and developers
+                            if !config_developers.is_empty() {
+                                if script.developers.is_some() {
+                                    let script_developers: HashSet<String> =
+                                        script.developers.clone().unwrap().into_iter().collect();
+                                    if config_developers.is_subset(&script_developers) {
+                                        scripts_to_run.push(script.to_owned());
+                                    }
+                                }
+                            } else {
+                                scripts_to_run.push(script.to_owned());
+                            }
                         } else {
                             debug!(
                                 "\nScript tags does not match config tags {:?} {}",
-                                &script_hashset,
+                                &script_tags,
                                 script.path.clone().unwrap().display()
                             );
                         }
@@ -282,8 +307,9 @@ pub fn find_scripts(mut path: PathBuf) -> Result<Vec<PathBuf>> {
 pub struct ScriptFile {
     pub path: Option<PathBuf>,
     pub tags: Option<Vec<String>>,
-    pub developer: Option<Vec<String>>,
+    pub developers: Option<Vec<String>>,
     pub port: Option<String>,
+    pub trigger_ports: Option<Vec<String>>,
     pub ports_separator: Option<String>,
     pub call_format: Option<String>,
 }
@@ -330,7 +356,7 @@ impl ScriptFile {
 pub struct ScriptConfig {
     pub tags: Option<Vec<String>>,
     pub ports: Option<Vec<String>>,
-    pub developer: Option<Vec<String>>,
+    pub developers: Option<Vec<String>>,
 }
 
 #[cfg(not(tarpaulin_include))]
