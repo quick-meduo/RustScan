@@ -179,7 +179,10 @@ fn main() {
             if script_f.trigger_ports.is_some() {
                 let script_trigger_ports: HashSet<String> =
                     script_f.trigger_ports.clone().unwrap().into_iter().collect();
-                if hash_ports.is_subset(&script_trigger_ports){
+
+
+                if is_subset_ports(&script_trigger_ports,&hash_ports) {
+                //if hash_ports.is_subset(&script_trigger_ports){
                     let script = Script::build(
                         script_f.path,
                         *ip,
@@ -235,6 +238,37 @@ fn main() {
     benchmarks.push(rustscan_bench);
     debug!("Benchmarks raw {:?}", benchmarks);
     info!("{}", benchmarks.summary());
+}
+
+fn is_subset_ports(trigger_ports: &HashSet<String> , ports: &HashSet<String> ) -> bool {
+    if trigger_ports.is_empty() {
+        return true;
+    }
+    if ports.is_empty() {
+        return false;
+    }
+
+    if ports.is_subset(&trigger_ports) {
+        return true;
+    }
+
+    for port in trigger_ports {
+        if port.contains("-") {
+            let parts = port.split("-").collect::<Vec<&str>>();
+            let start = parts[0].parse::<u16>().unwrap();
+            let end = parts[1].parse::<u16>().unwrap();
+
+            for scan_port in ports {
+                let scan_port_num = scan_port.parse::<u16>().unwrap();
+                if scan_port_num < start || scan_port_num > end {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Prints the opening title of RustScan

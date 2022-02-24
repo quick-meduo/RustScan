@@ -447,7 +447,7 @@ mod tests {
             Some(vec!["core_approved".to_string(), "example".to_string()])
         );
         assert_eq!(
-            script_f.developer,
+            script_f.developers,
             Some(vec![
                 "example".to_string(),
                 "https://example.org".to_string()
