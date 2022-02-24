@@ -137,7 +137,7 @@ fn main() {
         ip,
         opts.batch_size,
         "'rustscan -b <batch_size> -a <ip address>'");
-        warning!(x, opts.greppable, opts.accessible);
+        // warning!(x, opts.greppable, opts.accessible);
     }
 
     let mut script_bench = NamedTimer::start("Scripts");
