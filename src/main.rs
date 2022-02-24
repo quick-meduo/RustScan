@@ -153,36 +153,67 @@ fn main() {
             println!("{} -> [{}]", &ip, ports_str);
             continue;
         }
-        detail!("Starting Script(s)", opts.greppable, opts.accessible);
 
-        // Run all the scripts we found and parsed based on the script config file tags field.
-        for mut script_f in scripts_to_run.clone() {
-            // This part allows us to add commandline arguments to the Script call_format, appending them to the end of the command.
-            if !opts.command.is_empty() {
-                let user_extra_args = &opts.command.join(" ");
-                debug!("Extra args vec {:?}", user_extra_args);
-                if script_f.call_format.is_some() {
-                    let mut call_f = script_f.call_format.unwrap();
-                    call_f.push(' ');
-                    call_f.push_str(user_extra_args);
-                    output!(
+        // detail!("Starting Script(s)", opts.greppable, opts.accessible);
+
+        for port in hash_ports {
+            // Run all the scripts we found and parsed based on the script config file tags field.
+            for mut script_f in scripts_to_run.clone() {
+                // This part allows us to add commandline arguments to the Script call_format, appending them to the end of the command.
+                if !opts.command.is_empty() {
+                    let user_extra_args = &opts.command.join(" ");
+                    debug!("Extra args vec {:?}", user_extra_args);
+                    if script_f.call_format.is_some() {
+                        let mut call_f = script_f.call_format.unwrap();
+                        call_f.push(' ');
+                        call_f.push_str(user_extra_args);
+                        output!(
                         format!("Running script {:?} on ip {}\nDepending on the complexity of the script, results may take some time to appear.", call_f, &ip),
                         opts.greppable,
                         opts.accessible
                     );
-                    debug!("Call format {}", call_f);
-                    script_f.call_format = Some(call_f);
+                        debug!("Call format {}", call_f);
+                        script_f.call_format = Some(call_f);
+                    }
                 }
-            }
 
-            // Building the script with the arguments from the ScriptFile, and ip-ports.
-            if script_f.trigger_ports.is_some() {
-                let script_trigger_ports: HashSet<String> =
-                    script_f.trigger_ports.clone().unwrap().into_iter().collect();
+                // Building the script with the arguments from the ScriptFile, and ip-ports.
+                if script_f.trigger_ports.is_some() {
+                    let script_clone = script_f.clone();
+                    let script_trigger_ports: HashSet<String> =
+                        script_f.trigger_ports.clone().unwrap().into_iter().collect();
 
-
-                if is_subset_ports(&script_trigger_ports,&hash_ports) {
-                //if hash_ports.is_subset(&script_trigger_ports){
+                    let mut _ports = HashSet::<String>::new();
+                    _ports.insert(port.clone());
+                    let mut _ports_vec: Vec<u16> = vec![port.parse().unwrap()];
+                    if is_subset_ports(&script_trigger_ports, &_ports) {
+                        let script = Script::build(
+                            script_f.path,
+                            *ip,
+                            _ports_vec,
+                            script_f.port,
+                            script_f.ports_separator,
+                            script_f.tags,
+                            script_f.call_format,
+                        );
+                        println!("Starting Script(s): path: {}, ip: {}, ports: {}", script_clone.path.clone().unwrap().to_str().unwrap(),
+                                 ip, port.clone()
+                        );
+                        match script.run() {
+                            Ok(script_result) => {
+                                detail!(script_result.to_string(), opts.greppable, opts.accessible);
+                            }
+                            Err(e) => {
+                                warning!(
+                                &format!("Error {}", e.to_string()),
+                                opts.greppable,
+                                opts.accessible
+                            );
+                            }
+                        }
+                    }
+                } else if script_f.trigger_ports.is_none(){
+                    let script_clone = script_f.clone();
                     let script = Script::build(
                         script_f.path,
                         *ip,
@@ -192,39 +223,20 @@ fn main() {
                         script_f.tags,
                         script_f.call_format,
                     );
+                    println!("Starting Script(s): path: {}, ip: {}, ports: {}", script_clone.path.clone().unwrap().to_str().unwrap(),
+                             ip, ports_str
+                    );
                     match script.run() {
                         Ok(script_result) => {
                             detail!(script_result.to_string(), opts.greppable, opts.accessible);
                         }
                         Err(e) => {
-                           warning!(
-                                &format!("Error {}", e.to_string()),
-                                opts.greppable,
-                                opts.accessible
-                            );
-                        }
-                    }
-                }
-            } else if script_f.trigger_ports.is_none(){
-                let script = Script::build(
-                    script_f.path,
-                    *ip,
-                    ports.to_vec(),
-                    script_f.port,
-                    script_f.ports_separator,
-                    script_f.tags,
-                    script_f.call_format,
-                );
-                match script.run() {
-                    Ok(script_result) => {
-                        detail!(script_result.to_string(), opts.greppable, opts.accessible);
-                    }
-                    Err(e) => {
-                        warning!(
+                            warning!(
                         &format!("Error {}", e.to_string()),
                         opts.greppable,
                         opts.accessible
                     );
+                        }
                     }
                 }
             }
@@ -277,15 +289,8 @@ fn print_opening(opts: &Opts) {
     let s = r#".----. .-. .-. .----..---.  .----. .---.   .--.  .-. .-.
 | {}  }| { } |{ {__ {_   _}{ {__  /  ___} / {} \ |  `| |
 | .-. \| {_} |.-._} } | |  .-._} }\     }/  /\  \| |\  |
-`-' `-'`-----'`----'  `-'  `----'  `---' `-'  `-'`-' `-'
-The Modern Day Port Scanner."#;
+`-' `-'`-----'`----'  `-'  `----'  `---' `-'  `-'`-' `-'"#;
     println!("{}", s.gradient(Color::Green).bold());
-    let info = r#"________________________________________
-: https://discord.gg/GFrQsGy           :
-: https://github.com/RustScan/RustScan :
- --------------------------------------"#;
-    println!("{}", info.gradient(Color::Yellow).bold());
-    funny_opening!();
 
     let config_path = dirs::home_dir()
         .expect("Could not infer config file path.")
