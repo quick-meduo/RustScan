@@ -7,6 +7,8 @@ extern crate shell_words;
 mod tui;
 
 mod input;
+
+use std::borrow::Borrow;
 use input::{Config, Opts, PortRange, ScanOrder, ScriptsRequired};
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -153,78 +155,44 @@ fn main() {
             println!("{} -> [{}]", &ip, ports_str);
             continue;
         }
+        detail!("Starting Script(s)", opts.greppable, opts.accessible);
 
-        // detail!("Starting Script(s)", opts.greppable, opts.accessible);
-
-        for port in hash_ports {
-            // Run all the scripts we found and parsed based on the script config file tags field.
-            for mut script_f in scripts_to_run.clone() {
-                // This part allows us to add commandline arguments to the Script call_format, appending them to the end of the command.
-                if !opts.command.is_empty() {
-                    let user_extra_args = &opts.command.join(" ");
-                    debug!("Extra args vec {:?}", user_extra_args);
-                    if script_f.call_format.is_some() {
-                        let mut call_f = script_f.call_format.unwrap();
-                        call_f.push(' ');
-                        call_f.push_str(user_extra_args);
-                        output!(
+        // Run all the scripts we found and parsed based on the script config file tags field.
+        for mut script_f in scripts_to_run.clone() {
+            // This part allows us to add commandline arguments to the Script call_format, appending them to the end of the command.
+            if !opts.command.is_empty() {
+                let user_extra_args = &opts.command.join(" ");
+                debug!("Extra args vec {:?}", user_extra_args);
+                if script_f.call_format.is_some() {
+                    let mut call_f = script_f.call_format.unwrap();
+                    call_f.push(' ');
+                    call_f.push_str(user_extra_args);
+                    output!(
                         format!("Running script {:?} on ip {}\nDepending on the complexity of the script, results may take some time to appear.", call_f, &ip),
                         opts.greppable,
                         opts.accessible
                     );
-                        debug!("Call format {}", call_f);
-                        script_f.call_format = Some(call_f);
-                    }
+                    debug!("Call format {}", call_f);
+                    script_f.call_format = Some(call_f);
                 }
+            }
 
-                // Building the script with the arguments from the ScriptFile, and ip-ports.
-                if script_f.trigger_ports.is_some() {
-                    let script_clone = script_f.clone();
-                    let script_trigger_ports: HashSet<String> =
-                        script_f.trigger_ports.clone().unwrap().into_iter().collect();
+            // Building the script with the arguments from the ScriptFile, and ip-ports.
+            if script_f.trigger_ports.is_some() {
+                let script_trigger_ports: HashSet<String> =
+                    script_f.trigger_ports.clone().unwrap().into_iter().collect();
 
-                    let mut _ports = HashSet::<String>::new();
-                    _ports.insert(port.clone());
-                    let mut _ports_vec: Vec<u16> = vec![port.parse().unwrap()];
-                    if is_subset_ports(&script_trigger_ports, &_ports) {
-                        let script = Script::build(
-                            script_f.path,
-                            *ip,
-                            _ports_vec,
-                            script_f.port,
-                            script_f.ports_separator,
-                            script_f.tags,
-                            script_f.call_format,
-                        );
-                        println!("Starting Script(s): path: {}, ip: {}, ports: {}", script_clone.path.clone().unwrap().to_str().unwrap(),
-                                 ip, port.clone()
-                        );
-                        match script.run() {
-                            Ok(script_result) => {
-                                detail!(script_result.to_string(), opts.greppable, opts.accessible);
-                            }
-                            Err(e) => {
-                                warning!(
-                                &format!("Error {}", e.to_string()),
-                                opts.greppable,
-                                opts.accessible
-                            );
-                            }
-                        }
-                    }
-                } else if script_f.trigger_ports.is_none(){
-                    let script_clone = script_f.clone();
+                let (_hash_ports, ok) = infer_subset_ports(&script_trigger_ports, &hash_ports);
+                let _ports = _hash_ports.iter().map(|x| x.parse::<u16>().unwrap()).collect::<Vec<_>>();
+                if ok {
                     let script = Script::build(
                         script_f.path,
                         *ip,
-                        ports.to_vec(),
+                        _ports.to_vec(),
                         script_f.port,
                         script_f.ports_separator,
                         script_f.tags,
                         script_f.call_format,
-                    );
-                    println!("Starting Script(s): path: {}, ip: {}, ports: {}", script_clone.path.clone().unwrap().to_str().unwrap(),
-                             ip, ports_str
                     );
                     match script.run() {
                         Ok(script_result) => {
@@ -232,11 +200,33 @@ fn main() {
                         }
                         Err(e) => {
                             warning!(
+                                &format!("Error {}", e.to_string()),
+                                opts.greppable,
+                                opts.accessible
+                            );
+                        }
+                    }
+                }
+            } else if script_f.trigger_ports.is_none(){
+                let script = Script::build(
+                    script_f.path,
+                    *ip,
+                    ports.to_vec(),
+                    script_f.port,
+                    script_f.ports_separator,
+                    script_f.tags,
+                    script_f.call_format,
+                );
+                match script.run() {
+                    Ok(script_result) => {
+                        detail!(script_result.to_string(), opts.greppable, opts.accessible);
+                    }
+                    Err(e) => {
+                        warning!(
                         &format!("Error {}", e.to_string()),
                         opts.greppable,
                         opts.accessible
                     );
-                        }
                     }
                 }
             }
@@ -252,18 +242,20 @@ fn main() {
     info!("{}", benchmarks.summary());
 }
 
-fn is_subset_ports(trigger_ports: &HashSet<String> , ports: &HashSet<String> ) -> bool {
-    if trigger_ports.is_empty() {
-        return true;
-    }
+fn infer_subset_ports(trigger_ports: &HashSet<String>, ports: &HashSet<String> ) -> (HashSet<String>, bool) {
     if ports.is_empty() {
-        return false;
+        return (ports.clone(), false);
+    }
+
+    if trigger_ports.is_empty() {
+        return (ports.clone(),true);
     }
 
     if ports.is_subset(&trigger_ports) {
-        return true;
+        return (ports.clone(),true);
     }
 
+    let mut joined_ports = HashSet::<String>::new();
     for port in trigger_ports {
         if port.contains("-") {
             let parts = port.split("-").collect::<Vec<&str>>();
@@ -272,15 +264,25 @@ fn is_subset_ports(trigger_ports: &HashSet<String> , ports: &HashSet<String> ) -
 
             for scan_port in ports {
                 let scan_port_num = scan_port.parse::<u16>().unwrap();
-                if scan_port_num < start || scan_port_num > end {
-                    return false;
+                if scan_port_num >= start && scan_port_num <= end {
+                    joined_ports.insert(scan_port.to_string());
                 }
             }
-            return true;
+        } else {
+            for scan_port in ports {
+                let _scripts_port: i32 = scan_port.parse::<i32>().unwrap();
+                if trigger_ports.contains(&_scripts_port.to_string()) {
+                    joined_ports.insert(scan_port.to_string());
+                }
+            }
         }
     }
 
-    false
+    if !joined_ports.is_empty() {
+        return (joined_ports,true);
+    }
+
+    (ports.clone(), false)
 }
 
 /// Prints the opening title of RustScan
