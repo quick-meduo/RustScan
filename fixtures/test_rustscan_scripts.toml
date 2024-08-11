@@ -8,7 +8,7 @@ tags = ["core_approved", "example"]
 # ex.:
 # ports = ["80"]
 # ports = ["80","81","8080"]
-ports = ["80"]
+# ports = ["80"]
 
 # Only this developer(s) scripts to run.
-developers = ["example"]
+# developers = ["example"]

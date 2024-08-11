@@ -11,7 +11,8 @@ use rustscan::{detail, funny_opening, output, warning};
 
 use colorful::{Color, Colorful};
 use futures::executor::block_on;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 use std::net::IpAddr;
 use std::string::ToString;
 use std::time::Duration;
