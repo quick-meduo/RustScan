@@ -13,22 +13,22 @@ pub struct RangeIterator {
 
 /// An iterator that follows the `Linear Congruential Generator` algorithm.
 ///
-/// For more information: https://en.wikipedia.org/wiki/Linear_congruential_generator
+/// For more information: <https://en.wikipedia.org/wiki/Linear_congruential_generator>
 impl RangeIterator {
-    /// Receives the the start and end of a range and normalize
+    /// Receives the start and end of a range and normalize
     /// these values before selecting a coprime for the end of the range
     /// which will server as the step for the algorithm.
     ///
     /// For example, the range `1000-2500` will be normalized to `0-1500`
     /// before going through the algorithm.
     pub fn new(start: u32, end: u32) -> Self {
-        let normalized_end = end - start;
+        let normalized_end = end - start + 1;
         let step = pick_random_coprime(normalized_end);
 
         // Randomly choose a number within the range to be the first
         // and assign it as a pick.
         let mut rng = rand::thread_rng();
-        let normalized_first_pick = rng.gen_range(0, normalized_end);
+        let normalized_first_pick = rng.gen_range(0..normalized_end);
 
         Self {
             active: true,
@@ -84,14 +84,13 @@ fn pick_random_coprime(end: u32) -> u32 {
     let lower_range = range_boundary;
     let upper_range = end - range_boundary;
     let mut rng = rand::thread_rng();
-    let mut candidate = rng.gen_range(lower_range, upper_range);
+    let mut candidate = rng.gen_range(lower_range..upper_range);
 
     for _ in 0..10 {
         if end.gcd(candidate) == 1 {
             return candidate;
-        } else {
-            candidate = rng.gen_range(lower_range, upper_range);
         }
+        candidate = rng.gen_range(lower_range..upper_range);
     }
 
     end - 1
@@ -104,30 +103,30 @@ mod tests {
     #[test]
     fn range_iterator_iterates_through_the_entire_range() {
         let result = generate_sorted_range(1, 10);
-        let expected_range = (1..10).into_iter().collect::<Vec<u16>>();
+        let expected_range = (1..=10).into_iter().collect::<Vec<u16>>();
         assert_eq!(expected_range, result);
 
         let result = generate_sorted_range(1, 100);
-        let expected_range = (1..100).into_iter().collect::<Vec<u16>>();
+        let expected_range = (1..=100).into_iter().collect::<Vec<u16>>();
         assert_eq!(expected_range, result);
 
         let result = generate_sorted_range(1, 1000);
-        let expected_range = (1..1000).into_iter().collect::<Vec<u16>>();
+        let expected_range = (1..=1000).into_iter().collect::<Vec<u16>>();
         assert_eq!(expected_range, result);
 
         let result = generate_sorted_range(1, 65_535);
-        let expected_range = (1..65_535).into_iter().collect::<Vec<u16>>();
+        let expected_range = (1..=65_535).into_iter().collect::<Vec<u16>>();
         assert_eq!(expected_range, result);
 
         let result = generate_sorted_range(1000, 2000);
-        let expected_range = (1000..2000).into_iter().collect::<Vec<u16>>();
+        let expected_range = (1000..=2000).into_iter().collect::<Vec<u16>>();
         assert_eq!(expected_range, result);
     }
 
     fn generate_sorted_range(start: u32, end: u32) -> Vec<u16> {
         let range = RangeIterator::new(start, end);
         let mut result = range.into_iter().collect::<Vec<u16>>();
-        result.sort();
+        result.sort_unstable();
 
         result
     }

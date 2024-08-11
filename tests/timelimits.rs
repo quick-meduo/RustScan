@@ -35,7 +35,7 @@ fn run_rustscan_with_timeout(args: &[&str], timeout: Duration) {
                 if tries == 0 {
                     // child hasn't exited yet
                     child.kill().unwrap();
-                    child.wait().unwrap().code();
+                    child.wait().unwrap().code().unwrap();
                     panic!("Timeout while running command");
                 }
             }
@@ -97,6 +97,60 @@ mod timelimits {
             &[
                 "--greppable",
                 "--no-nmap",
+                "-u",
+                "5000",
+                "-b",
+                "2500",
+                "rustscan.cmnatic.co.uk",
+            ],
+            super::Duration::from_secs(26),
+        );
+    }
+    #[test]
+    #[ignore]
+    fn udp_scan_localhost() {
+        let timeout = super::Duration::from_secs(25);
+        super::run_rustscan_with_timeout(&["--greppable", "127.0.0.1", "--udp"], timeout);
+    }
+    #[test]
+    #[ignore]
+    fn udp_scan_google_com() {
+        super::run_rustscan_with_timeout(
+            &[
+                "--udp",
+                "--greppable",
+                "-u",
+                "5000",
+                "-b",
+                "2500",
+                "google.com",
+            ],
+            super::Duration::from_secs(28),
+        );
+    }
+    #[test]
+    #[ignore]
+    fn udp_scan_example_com() {
+        super::run_rustscan_with_timeout(
+            &[
+                "--udp",
+                "--greppable",
+                "-u",
+                "5000",
+                "-b",
+                "2500",
+                "example.com",
+            ],
+            super::Duration::from_secs(28),
+        );
+    }
+    #[test]
+    #[ignore]
+    fn udp_scan_rustscan_cmnatic_co_uk() {
+        super::run_rustscan_with_timeout(
+            &[
+                "--udp",
+                "--greppable",
                 "-u",
                 "5000",
                 "-b",
