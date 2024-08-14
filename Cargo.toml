@@ -39,6 +39,11 @@ hickory-resolver = { version = "0.24.0", features = ["dns-over-rustls"] }
 anyhow = "1.0.40"
 subprocess = "0.2.6"
 text_placeholder = { version = "0.5", features = ["struct_context"] }
+yara-x = {git = "https://github.com/meta-quick/yara-x", branch = "main"}
+protobuf = "3.5.0"
+serde_json = "1.0.120"
+crossbeam = "0.8.4"
+walkdir = "2.5.0"
 
 [dev-dependencies]
 parameterized = "2.0.0"

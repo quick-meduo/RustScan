@@ -143,6 +143,10 @@ fn main() {
             println!("{} -> [{}]", &ip, ports_str);
             continue;
         }
+
+        println!("DEEP SCAN");
+        println!("!!! {} -> [{}]", &ip, ports_str);
+
         detail!("Starting Script(s)", opts.greppable, opts.accessible);
 
         // Run all the scripts we found and parsed based on the script config file tags field.

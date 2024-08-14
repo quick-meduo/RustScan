@@ -133,7 +133,7 @@ pub fn init_scripts(scripts: ScriptsRequired) -> Result<Vec<ScriptFile>> {
                     None => { HashSet::<String>::new() }
                 };
 
-                let config_ports: HashSet<String> = match script_config.ports {
+                let _config_ports: HashSet<String> = match script_config.ports {
                     Some(ports) => ports.into_iter().collect(),
                     None => { HashSet::<String>::new() }
                 };
