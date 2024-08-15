@@ -1,14 +1,20 @@
+mod sniff_packet;
+mod rule_load;
+
 use core::mem;
 use std::any::Any;
 use std::convert::TryInto;
 use std::fs;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Error, Result};
-
+use protobuf_json_mapping::print_to_string;
 use yara_x as yrx;
-use yara_x::{Rule, Variable};
+use yara_x::{Variable};
 use yara_x::SourceCode;
+
+use serde_json::{json, Map, Value};
 
 pub struct YaraXCompiler<'a> {
     inner: yrx::Compiler<'a>,
@@ -168,6 +174,189 @@ impl<'r>  Scanner<'r>{
     }
 }
 
+trait to_json {
+    fn to_json(&self) -> Value;
+}
+
+pub struct Pattern {
+    identifier: String,
+    matches: Vec<Match>,
+}
+
+impl to_json for Pattern {
+    fn to_json(&self) -> Value {
+        let mut result: Map<String, Value> = Map::new();
+        result.insert("identifier".to_string(), Value::String(self.identifier.to_string()));
+
+        let mut match_vec: Vec<Value> = vec![];
+        for m in &self.matches {
+            match_vec.push(m.to_json());
+        }
+        result.insert("matches".to_string(), Value::Array(match_vec));
+        Value::from(result)
+    }
+}
+
+pub struct Match {
+    /// Offset within the scanned data where the match occurred.
+    offset: usize,
+    /// Length of the match.
+    length: usize,
+    /// For patterns that have the `xor` modifier, contains the XOR key that
+    /// applied to matching data. For any other pattern will be `None`.
+    xor_key: Option<u8>,
+}
+
+impl to_json for Match {
+    fn to_json(&self) -> Value {
+        let mut result: Map<String, Value> = Map::new();
+        result.insert("offset".to_string(), Value::from(self.offset));
+        result.insert("length".to_string(), Value::from(self.length));
+        if self.xor_key.is_none() {
+            result.insert("xor_key".to_string(), Value::from(false));
+        } else {
+            result.insert("xor_key".to_string(), Value::from(true));
+        }
+        Value::from(result)
+    }
+}
+
+pub struct MetaData {
+    ident: String,
+    value: String,
+}
+
+impl to_json for MetaData {
+    fn to_json(&self) -> Value {
+        let mut result:Map<String, Value> = Map::new();
+        result.insert("ident".to_string(), Value::from(self.ident.to_string()));
+        result.insert("value".to_string(), Value::from(self.value.to_string()));
+        Value::from(result)
+    }
+}
+
+pub struct Rule {
+    identifier: String,
+    namespace: String,
+    metadata: Vec<MetaData>,
+    patterns: Vec<Pattern>,
+}
+
+impl to_json for Rule {
+    fn to_json(&self) -> Value {
+        let mut result: Map<String, Value> = Map::new();
+        result.insert("identifier".to_string(), Value::String(self.identifier.to_string()));
+        result.insert("namespace".to_string(), Value::String(self.namespace.to_string()));
+        let mut metadata_vec:Vec<Value> = vec![];
+        for m in &self.metadata {
+            metadata_vec.push(Value::from(m.to_json()));
+        }
+        result.insert("metadata".to_string(), Value::from(metadata_vec));
+
+        let mut pattern_vec: Vec<Value> = vec![];
+        for p in &self.patterns {
+            pattern_vec.push(Value::from(p.to_json()));
+        }
+        result.insert("patterns".to_string(), Value::from(pattern_vec));
+        Value::from(result)
+    }
+}
+
+pub struct ScanResults {
+    /// Vector that contains all the rules that matched during the scan.
+    matching_rules: Vec<Rule>,
+    /// Dictionary where keys are module names and values are other
+    /// dictionaries with the information produced by the corresponding module.
+    module_outputs: Vec<(String,String)>,
+}
+
+impl to_json for ScanResults{
+    fn to_json(&self) -> Value {
+        let mut result: Map<String, Value> = Map::new();
+        let mut rule_vec:Vec<Value> = vec![];
+        for r in &self.matching_rules {
+            rule_vec.push(Value::from(r.to_json()));
+        }
+        result.insert("matching_rules".to_string(), Value::from(rule_vec));
+
+        let mut module_map: Map<String, Value> = Map::new();
+        for (k, v) in &self.module_outputs {
+            module_map.insert(k.to_string(), Value::from(v.to_string()));
+        }
+        result.insert("module_outputs".to_string(), Value::Object(module_map));
+        Value::from(result)
+    }
+}
+
+pub fn metadata_jsonify(
+    ident: &str,
+    metadata: yrx::MetaValue,
+) -> MetaData {
+    let value = match metadata {
+        yrx::MetaValue::Integer(v) => v.to_string(),
+        yrx::MetaValue::Float(v) => v.to_string(),
+        yrx::MetaValue::Bool(v) => v.to_string(),
+        yrx::MetaValue::String(v) => v.to_string(),
+        yrx::MetaValue::Bytes(v) => v.to_string(),
+    };
+    MetaData {
+        ident: ident.to_string(),
+        value,
+    }
+}
+
+pub fn match_jsonify(match_: yrx::Match) -> Match {
+    Match {
+        offset: match_.range().start,
+        length: match_.range().len(),
+        xor_key: match_.xor_key(),
+    }
+}
+pub fn pattern_jsonify(pattern: yrx::Pattern) -> Pattern {
+    Pattern {
+        identifier: pattern.identifier().to_string(),
+        matches: pattern.matches().map(|match_| {
+            match_jsonify(match_)
+        }).collect(),
+    }
+}
+pub fn rule_jsonify( rule: &yrx::Rule) -> Rule {
+    Rule {
+        identifier: rule.identifier().to_string(),
+        namespace: rule.namespace().to_string(),
+        metadata: rule.metadata().map(|(ident, value)| metadata_jsonify(ident, value)).collect(),
+        patterns: rule.patterns().map(|pattern| pattern_jsonify(pattern)).collect()
+    }
+}
+
+pub fn scan_results_jsonify(scan_results: yrx::ScanResults) -> ScanResults {
+    let matching_rules = scan_results
+        .matching_rules()
+        .map(|rule| rule_jsonify(&rule))
+        .collect::<Vec<Rule>>();
+
+    let mut module_outputs:  Vec::<(String, String)> = Vec::new();
+    for (module, output) in scan_results.module_outputs() {
+        let byteout = output.write_to_bytes_dyn();
+        if let Ok(bb) = byteout {
+            let str = std::str::from_utf8(bb.as_slice());
+            if let Ok(s) = str {
+                module_outputs.push((module.to_string(),s.to_string()));
+                continue;
+            }
+        }
+        let module_output_json = print_to_string(output).unwrap();
+        module_outputs.push((module.to_string(),module_output_json));
+    }
+
+    ScanResults {
+        matching_rules,
+        module_outputs,
+    }
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use yara_x::MetaValue::String;
@@ -232,7 +421,7 @@ mod tests {
         let rules =  compiler.build().unwrap();
 
         let mut scanner = Scanner::new(&rules);
-        let scan_results =scanner.scan(b"UVODFRYSIHLNWPEJXQZAKCBGMT").unwrap();
+        let scan_results =scanner.scan(b"_1234UVODFRYSIHLNWPEJXQZAKCBGMT_").unwrap();
         let matching_rules = scan_results
             .matching_rules()
             .map(|rule| rule )
@@ -240,11 +429,20 @@ mod tests {
         for rule in matching_rules {
             println!("{}", rule.identifier());
             rule.tags().for_each(|tag| {
-                println!("  {}", tag.identifier());
+                println!("  tag: {}", tag.identifier());
             });
 
             rule.metadata().for_each(|meta| {
-                println!("  {}", meta.0, meta.1);
+                let m = metadata_jsonify(meta.0, meta.1);
+                println!("  meta: {} -> {}", m.ident, m.value);
+            });
+
+            rule.patterns().for_each(|pattern| {
+                println!("  pattern: {}", pattern.identifier());
+                pattern.matches().for_each(|mat| {
+                    let mat = match_jsonify(mat);
+                    println!("    match: {} -> {}", mat.offset, mat.length);
+                });
             });
         }
         assert!(result.is_ok());

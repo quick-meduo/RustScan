@@ -44,6 +44,10 @@ protobuf = "3.5.0"
 serde_json = "1.0.120"
 crossbeam = "0.8.4"
 walkdir = "2.5.0"
+protobuf-codegen = "3.5.0"
+protobuf-json-mapping = "3.5.0"
+snafu = "0.8.4"
+serde_yaml = "0.9.34+deprecated"
 
 [dev-dependencies]
 parameterized = "2.0.0"
