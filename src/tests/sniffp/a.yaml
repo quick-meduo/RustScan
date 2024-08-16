@@ -12,6 +12,10 @@ trigger_protocols:
 packet_patterns:
   - !HexSequence [141, 77, 176, 43, 193, 131, 192, 39, 153, 106, 78, 89, 247, 249]
   - !HexString "8D4DB02BC183C027996A4E59F7F9"
+  - !String |
+    "UVODFRYSIHLNWPEJXQZAKCBGMT
+    hello_banker
+    "
 
 rule_definition: |
   rule hello_bankerc : banker {

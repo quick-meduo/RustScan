@@ -629,6 +629,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "core_affinity"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "622892f5635ce1fc38c8f16dfc938553ed64af482edb5e150bf4caedbfcb2304"
+dependencies = [
+ "libc",
+ "num_cpus",
+ "winapi",
+]
+
+[[package]]
 name = "countme"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1002,6 +1013,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.69",
+]
+
+[[package]]
+name = "disruptor"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c694fea9f9d7d1ca7b5664efbb7b5c8fb5e54bd9bdd7104c2b7b39c9b0d7367e"
+dependencies = [
+ "core_affinity",
+ "crossbeam-utils",
+ "thiserror",
 ]
 
 [[package]]
@@ -1547,6 +1569,12 @@ name = "hermit-abi"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fbf6a919d6cf397374f7dfeeea91d974c7c0a7221d0d0f4f20d859d329e53fcc"
+
+[[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hickory-proto"
@@ -2862,9 +2890,11 @@ dependencies = [
  "colorful",
  "crossbeam",
  "dirs",
+ "disruptor",
  "env_logger",
  "futures",
  "gcd",
+ "hex",
  "hickory-resolver",
  "itertools 0.13.0",
  "log",

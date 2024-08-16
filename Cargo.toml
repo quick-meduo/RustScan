@@ -48,6 +48,8 @@ protobuf-codegen = "3.5.0"
 protobuf-json-mapping = "3.5.0"
 snafu = "0.8.4"
 serde_yaml = "0.9.34+deprecated"
+hex = "0.4.3"
+disruptor = "3.2.0"
 
 [dev-dependencies]
 parameterized = "2.0.0"

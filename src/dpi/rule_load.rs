@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use snafu::{whatever, Whatever};
 use yara_x::Rules;
-use crate::dpi::sniff_packet::SniffPacket;
+use crate::dpi::proble_rule::ProbleRule;
 use crate::dpi::{Scanner, YaraXCompiler};
 
 pub struct RuleLoad {
-    rules: HashMap<String, SniffPacket>
+    rules: HashMap<String, ProbleRule>
 }
 
 impl RuleLoad {
@@ -72,7 +72,7 @@ impl RuleLoad {
     }
 
     pub fn load_rule_with_file(&mut self, file_path: String) {
-        let packet = SniffPacket::new(file_path.as_str());
+        let packet = ProbleRule::new(file_path.as_str());
         match packet {
             Ok(packet) => {
                 self.add_rule(file_path, packet);
@@ -81,7 +81,7 @@ impl RuleLoad {
         }
     }
 
-    pub fn add_rule(&mut self,key: String, rule: SniffPacket) {
+    pub fn add_rule(&mut self,key: String, rule: ProbleRule) {
         if rule.meta.enabled {
             self.rules.insert(key, rule);
         }
@@ -90,8 +90,11 @@ impl RuleLoad {
 
 #[cfg(test)]
 mod tests {
-    use std::any::Any;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use disruptor::Sequence;
     use super::*;
+    use disruptor::*;
 
     #[test]
     fn test_rule_load() {
@@ -112,5 +115,65 @@ mod tests {
         let binding = rules.unwrap();
         let scanner = Scanner::new(&binding);
         println!("done");
+    }
+
+    #[test]
+    fn test_ref_cell() {
+        #[derive(Debug)]
+        struct GroundStation{
+            radio_freq: f64
+        }
+
+        let base = Rc::new(RefCell::new(GroundStation{
+            radio_freq: 87.65
+        }));
+        println!("base {:?}", base);
+
+        {
+            let mut base_ref = base.borrow_mut();
+            base_ref.radio_freq = 123.456;
+            println!("base_ref {:?}", base_ref);
+        }
+
+        println!("base {:?}", base);
+
+        let mut base_ref = base.borrow_mut();
+        base_ref.radio_freq = 98.76;
+
+        println!("base {:?}", base);
+        println!("base_ref {:?}", base_ref);
+    }
+
+    #[test]
+    fn test_disruptor() {
+        struct Event {
+            price: f64
+        }
+
+        let factory = || { Event { price: 0.0 }};
+
+        let processor = |e: &Event, sequence: Sequence, end_of_batch: bool| {
+            println!("price: {}", e.price);
+        };
+
+        let size = 64;
+        let mut producer = disruptor::build_single_producer(size, factory, BusySpin)
+            .handle_events_with(processor)
+            .build();
+
+        for i in 0..10 {
+            producer.publish(|e| {
+                e.price = i as f64;
+            });
+        }
+
+        // Publish a batch of events into the Disruptor.
+        producer.batch_publish(5, |iter| {
+            let mut delta = 0.1;
+            for e in iter { // `iter` is guaranteed to yield 5 events.
+                e.price = 42.0 + delta;
+                delta += 0.1;
+            }
+        });
     }
 }
