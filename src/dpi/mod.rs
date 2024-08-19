@@ -1,11 +1,13 @@
+#![allow(dead_code)]
+#![warn(non_camel_case_types)]
+
 mod proble_rule;
 mod rule_load;
+mod proble_engine;
 
 use core::mem;
-use std::any::Any;
 use std::convert::TryInto;
 use std::fs;
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Error, Result};
@@ -14,7 +16,7 @@ use yara_x as yrx;
 use yara_x::{Variable};
 use yara_x::SourceCode;
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 pub struct YaraXCompiler<'a> {
     inner: yrx::Compiler<'a>,
@@ -174,7 +176,7 @@ impl<'r>  Scanner<'r>{
     }
 }
 
-trait to_json {
+trait ToJson {
     fn to_json(&self) -> Value;
 }
 
@@ -183,7 +185,7 @@ pub struct Pattern {
     matches: Vec<Match>,
 }
 
-impl to_json for Pattern {
+impl ToJson for Pattern {
     fn to_json(&self) -> Value {
         let mut result: Map<String, Value> = Map::new();
         result.insert("identifier".to_string(), Value::String(self.identifier.to_string()));
@@ -207,7 +209,7 @@ pub struct Match {
     xor_key: Option<u8>,
 }
 
-impl to_json for Match {
+impl ToJson for Match {
     fn to_json(&self) -> Value {
         let mut result: Map<String, Value> = Map::new();
         result.insert("offset".to_string(), Value::from(self.offset));
@@ -226,7 +228,7 @@ pub struct MetaData {
     value: String,
 }
 
-impl to_json for MetaData {
+impl ToJson for MetaData {
     fn to_json(&self) -> Value {
         let mut result:Map<String, Value> = Map::new();
         result.insert("ident".to_string(), Value::from(self.ident.to_string()));
@@ -242,7 +244,7 @@ pub struct Rule {
     patterns: Vec<Pattern>,
 }
 
-impl to_json for Rule {
+impl ToJson for Rule {
     fn to_json(&self) -> Value {
         let mut result: Map<String, Value> = Map::new();
         result.insert("identifier".to_string(), Value::String(self.identifier.to_string()));
@@ -270,7 +272,7 @@ pub struct ScanResults {
     module_outputs: Vec<(String,String)>,
 }
 
-impl to_json for ScanResults{
+impl ToJson for ScanResults{
     fn to_json(&self) -> Value {
         let mut result: Map<String, Value> = Map::new();
         let mut rule_vec:Vec<Value> = vec![];
@@ -359,7 +361,6 @@ pub fn scan_results_jsonify(scan_results: yrx::ScanResults) -> ScanResults {
 
 #[cfg(test)]
 mod tests {
-    use yara_x::MetaValue::String;
     use yara_x::Rule;
     use super::*;
 

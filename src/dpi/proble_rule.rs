@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![warn(unreachable_code)]
+
 use std::fs::File;
 use std::io::BufReader;
 use async_std::path::Path;
@@ -24,14 +27,14 @@ impl ProblePattern {
     }
 }
 
-#[derive(Deserialize,Serialize)]
+#[derive(Deserialize,Serialize,Clone)]
 pub struct MetaInfo {
     pub name: String,
     pub enabled: bool,
     pub description: String,
 }
 
-#[derive(Deserialize,Serialize)]
+#[derive(Deserialize,Serialize,Clone)]
 pub struct ProbleRule{
     pub meta: MetaInfo,
     pub trigger_ports : Vec<String>,
@@ -41,6 +44,7 @@ pub struct ProbleRule{
 }
 
 impl ProbleRule {
+    #![allow(unreachable_code)]
     pub fn new(path: &str) -> Result<ProbleRule,Whatever> {
         let path = Path::new(path);
         let file = File::open(path);
@@ -52,7 +56,7 @@ impl ProbleRule {
         let reader = BufReader::new(file);
         let yaml = serde_yaml::from_reader::<BufReader<File>, ProbleRule>(reader);
         if yaml.is_err() {
-            return return whatever!("Invalid packet definition in {}", path.to_str().unwrap());;
+            return whatever!("Invalid packet definition in {}", path.to_str().unwrap());
         }
 
         Ok(yaml.unwrap())
@@ -127,7 +131,7 @@ impl ProbleRule {
             if protocol_str == "*" {
                 return true;
             }
-            if protocol_str == protocol {
+            if protocol_str.to_lowercase() == protocol.to_lowercase() {
                 return true;
             }
         }
@@ -138,7 +142,6 @@ impl ProbleRule {
         self.packet_patterns.clone()
     }
 }
-
 
 #[cfg(test)]
 mod tests {

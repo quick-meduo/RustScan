@@ -1,9 +1,14 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use snafu::{whatever, Whatever};
 use yara_x::Rules;
 use crate::dpi::proble_rule::ProbleRule;
-use crate::dpi::{Scanner, YaraXCompiler};
+use crate::dpi::{YaraXCompiler};
+
+#[cfg(test)]
+use crate::dpi::Scanner;
 
 pub struct RuleLoad {
     rules: HashMap<String, ProbleRule>
@@ -86,7 +91,12 @@ impl RuleLoad {
             self.rules.insert(key, rule);
         }
     }
+
+    pub fn get_rules(&self) -> &HashMap<String, ProbleRule> {
+        &self.rules
+    }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -113,7 +123,7 @@ mod tests {
         assert!(rules.is_ok());
 
         let binding = rules.unwrap();
-        let scanner = Scanner::new(&binding);
+        let _scanner = Scanner::new(&binding);
         println!("done");
     }
 
@@ -152,7 +162,7 @@ mod tests {
 
         let factory = || { Event { price: 0.0 }};
 
-        let processor = |e: &Event, sequence: Sequence, end_of_batch: bool| {
+        let processor = |e: &Event, _sequence: Sequence, _end_of_batch: bool| {
             println!("price: {}", e.price);
         };
 

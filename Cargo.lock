@@ -2753,6 +2753,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "rmbuf"
+version = "0.1.0"
+source = "git+https://github.com/meta-quick/rmbuf?branch=main#8ee7fd0a78dd8242f1dbaf0cd3480e7e16ff8970"
+
+[[package]]
 name = "rowan"
 version = "0.15.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2904,6 +2909,7 @@ dependencies = [
  "protobuf-json-mapping",
  "rand",
  "rlimit",
+ "rmbuf",
  "serde",
  "serde_derive",
  "serde_json",

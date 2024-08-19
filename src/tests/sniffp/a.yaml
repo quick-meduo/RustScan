@@ -4,7 +4,7 @@ meta:
   enabled: true
 
 trigger_ports:
-  - "80-120"
+  - "80-4000"
   - "443"
 trigger_protocols:
   - "TCP"

@@ -47,9 +47,13 @@ walkdir = "2.5.0"
 protobuf-codegen = "3.5.0"
 protobuf-json-mapping = "3.5.0"
 snafu = "0.8.4"
-serde_yaml = "0.9.34+deprecated"
+serde_yaml = "0.9.33"
 hex = "0.4.3"
 disruptor = "3.2.0"
+rmbuf = { git = "https://github.com/meta-quick/rmbuf", branch = "main"}
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
 
 [dev-dependencies]
 parameterized = "2.0.0"

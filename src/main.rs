@@ -1,5 +1,6 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
+#![warn(unused_variables)]
 #![allow(clippy::doc_markdown, clippy::if_not_else, clippy::non_ascii_literal)]
 
 use rustscan::benchmark::{Benchmark, NamedTimer};
