@@ -58,7 +58,7 @@ impl PacketInjector {
 
     #[allow(unreachable_code)]
     fn inject_tcp(&self,ip: &str, port: u16,data: &[u8]) -> Result<Vec<u8>,Whatever> {
-        let mut stream = std::net::TcpStream::connect(SocketAddr::new(ip.parse().unwrap(), port));
+        let stream = std::net::TcpStream::connect(SocketAddr::new(ip.parse().unwrap(), port));
         match stream {
             Ok(mut stream) => {
                stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).expect("failed to set timer");
@@ -66,7 +66,7 @@ impl PacketInjector {
                match time_ret {
                    Ok(_) => {
                    }
-                   Err(e) => {
+                   Err(_e) => {
                        return whatever!("failed to set nonblocking");
                    }
                }
@@ -78,18 +78,11 @@ impl PacketInjector {
 
                let mut mbuf = MBuf::new(8192);
                let mut packet = [0u8; 4096];
-               while let response = stream.read(&mut packet){
-                   match response {
-                       Ok(size) => {
-                           if size == 0 {
-                               break;
-                           }
-                           let _ret = mbuf.append(&packet[..size]);
-                       }
-                       Err(e) => {
-                           whatever!("Error: {}", e)
-                       }
+               while let Ok(size) = stream.read(&mut packet){
+                   if size == 0 {
+                       break;
                    }
+                   let _ret = mbuf.append(&packet[..size]);
                };
                Ok(mbuf.data().to_vec())
             }
