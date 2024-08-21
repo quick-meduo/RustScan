@@ -1,32 +1,91 @@
 #![allow(dead_code)]
 
+use std::option::Option;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::mpsc::{Sender};
+use std::thread;
 use rmbuf::MBuf;
 use snafu::{whatever, Whatever};
 use crate::dpi::proble_rule::{ProblePattern};
 use crate::dpi::rule_load::RuleLoad;
+use crate::dpi::{match_jsonify, Scanner, YaraXCompiler};
+use yara_x as yrx;
+use yara_x::{Rule, Rules};
+use crate::dpi::lmax::{new_channel, Event};
 
 pub struct PacketInjector {
-    pub load: RuleLoad
+    pub load: RuleLoad,
+    pub yrx_rules: Option<yrx::Rules>,
 }
 
 impl PacketInjector {
     pub fn new() -> Self {
         let load = RuleLoad::new();
         PacketInjector {
-            load
+            load,
+            yrx_rules: None,
         }
     }
 
     pub fn load(&mut self,paths: Vec<PathBuf>) {
         self.load.load_rules_with_folders(paths);
+
+        //initial scanner
+        let rules = self.load.get_rules();
+        let mut compiler = YaraXCompiler::new(false,false);
+        for rule in rules {
+           let rule_definition = rule.1.get_rule_definition();
+           if let Ok(_) = compiler.add_source(&rule_definition){
+           }
+        }
+
+        if let Ok(rules) = compiler.build(){
+            self.yrx_rules = Some(rules);
+        }
     }
 
-    pub fn inject(&self, ip: &str, port: u16, protocol: &str) {
-        let rule = self.load.get_rules();
-        for rule in rule {
+    pub fn create_disruptor(&mut self) -> Sender<Event> {
+        let rules = self.yrx_rules.take().unwrap();
+        let (sender, receiver) = new_channel();
+
+        thread::spawn(move || {
+            let mut scanner = Scanner::new(&rules);
+            loop{
+                let event = receiver.recv();
+                match event {
+                    Ok(e) => {
+                        let ret = scanner.scan(&e.data);
+                        if let Ok(scan_results) = ret{
+                            let matching_rules = scan_results
+                                .matching_rules()
+                                .map(|rule| rule )
+                                .collect::<Vec<Rule>>();
+                            for rule in matching_rules {
+                                println!("recv {}", rule.identifier());
+                                rule.patterns().for_each(|pattern| {
+                                    println!("pattern {}", pattern.identifier());
+                                    pattern.matches().for_each(|mat| {
+                                        let mat = match_jsonify(mat);
+                                        println!("    match: {} -> {}", mat.offset, mat.length);
+                                    });
+                                })
+                            }
+                        }
+                    }
+                    Err(_) => {
+                    }
+                }
+            }
+        });
+
+        sender
+    }
+
+    pub fn inject(&self, mut sender: Sender<Event>, ip: &str, port: u16, protocol: &str) {
+        let rule_map = self.load.get_rules();
+        for rule in rule_map {
             let rule = rule.1;
             if rule.check_ports(port) && rule.check_protocols(protocol) {
                 let proble_pattern = rule.get_proble_pattern();
@@ -34,7 +93,10 @@ impl PacketInjector {
                    let ret = self.inject_with_pattern(ip, port, protocol, &pattern);
                    match ret {
                        Ok(ret) => {
-                           println!("inject success,message,{:x?}",ret.as_slice());
+                           let ret = sender.send(Event::new(1, ret));
+                           if let Err(e) = ret {
+                               println!("send failed,message,{:?}",e);
+                           }
                        }
                        Err(e) => {
                            println!("inject failed,message,{:?}",e);
@@ -101,8 +163,8 @@ mod tests {
     fn test_load_definition() {
         let mut injector = PacketInjector::new();
         injector.load(vec![PathBuf::from("src/tests/sniffp")]);
-
-        injector.inject("127.0.0.1", 3000, "tcp");
+        let mut disruptor = injector.create_disruptor();
+        injector.inject(disruptor,"127.0.0.1", 3000, "tcp");
     }
 
     #[test]

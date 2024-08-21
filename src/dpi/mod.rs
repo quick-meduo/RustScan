@@ -4,6 +4,7 @@
 mod proble_rule;
 mod rule_load;
 mod proble_engine;
+mod lmax;
 
 use core::mem;
 use std::convert::TryInto;

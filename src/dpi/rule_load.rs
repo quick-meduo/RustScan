@@ -102,6 +102,7 @@ impl RuleLoad {
 mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
+    use std::thread;
     use disruptor::Sequence;
     use super::*;
     use disruptor::*;
@@ -152,38 +153,5 @@ mod tests {
 
         println!("base {:?}", base);
         println!("base_ref {:?}", base_ref);
-    }
-
-    #[test]
-    fn test_disruptor() {
-        struct Event {
-            price: f64
-        }
-
-        let factory = || { Event { price: 0.0 }};
-
-        let processor = |e: &Event, _sequence: Sequence, _end_of_batch: bool| {
-            println!("price: {}", e.price);
-        };
-
-        let size = 64;
-        let mut producer = disruptor::build_single_producer(size, factory, BusySpin)
-            .handle_events_with(processor)
-            .build();
-
-        for i in 0..10 {
-            producer.publish(|e| {
-                e.price = i as f64;
-            });
-        }
-
-        // Publish a batch of events into the Disruptor.
-        producer.batch_publish(5, |iter| {
-            let mut delta = 0.1;
-            for e in iter { // `iter` is guaranteed to yield 5 events.
-                e.price = 42.0 + delta;
-                delta += 0.1;
-            }
-        });
     }
 }
